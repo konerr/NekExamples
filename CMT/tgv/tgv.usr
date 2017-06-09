@@ -1,0 +1,266 @@
+      subroutine uservp (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'   ! this is not
+      include 'CMTDATA' ! the best idea
+      include 'NEKUSE'
+      real r0,v0,rey,machnumber
+      common /usrparm/ r0,v0,rey,machnumber
+      integer e,eg
+
+      e = gllel(eg)
+
+      nu_s=0.0
+      mu=muref
+      lambda=-2.0/3.0*mu
+      udiff=mu*cpgref/prlam
+      utrans=0.
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userf  (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer e,eg
+
+      ffx = 0.0
+      ffy = 0.0
+      ffz = 0.0
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userq  (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      integer e,eg
+
+      qvol   = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userchk
+      include 'SIZE'
+      include 'TOTAL'
+      include 'CMTDATA'
+
+      integer  e,f
+      real xke,yke,zke,total_ke,twopicube
+      real err(4),work(4)
+      integer  luout(6)
+      character*24 zefn
+
+      luout(1) = 59
+      luout(2) = 60
+      luout(3) = 61
+      luout(4) = 62
+      luout(5) = 63
+      luout(6) = 64
+
+      twopicube = (8.0*atan(1.0))**3.0
+      nxyz= nx1*ny1*nz1
+      n = nxyz*nelt
+      ifxyo=.true.
+      if (istep.gt.1) ifxyo=.false.
+
+      eps     = 0.00001
+      time=time_cmt
+      dt=dt_cmt
+
+      umin = glmin(t,n)
+      umax = glmax(t,n)
+!     umin = glmin(vx,n)
+!     umax = glmax(vx,n)
+!     if (mod(kstep,100).eq.0) then
+c Compute kinetic energy 
+      call compute_primitive_vars
+      xke = glsc3(vx, vx, bm1, n)
+      yke = glsc3(vy, vy, bm1, n)
+      zke = glsc3(vz, vz, bm1, n)
+      total_ke = 0.5*rho*(xke + yke + zke)/volvm1
+
+      if (nio.eq.0) then
+         write(6,2)istep,time,umin,' <T<',umax
+!        write(6,2)istep,time,umin,' <u<',umax
+         
+  	 if(mod(istep,10).eq.0) then
+         open(unit=luout(1),file='tgv_ke.dat',form="formatted",
+     >        position="append")
+         write(luout(1),'(2e23.16)')time,total_ke
+         close(luout(1))
+	 endif
+      endif
+!     endif
+2     format(i6,1p2e17.8,a4,1p1e17.8)
+3     format(2p1e17.8)
+
+      return
+      end
+
+c-----------------------------------------------------------------------
+
+      subroutine userbc (ix,iy,iz,iside,eg)
+! Periodic
+      include 'SIZE'
+      integer eg
+
+      return
+      end
+
+c-----------------------------------------------------------------------
+
+      subroutine useric (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      include 'PERFECTGAS'
+      include 'CMTDATA'
+      real r0,v0,rey,machnumber
+      common /usrparm/ r0,v0,rey,machnumber
+      integer e,eg, eqnum
+
+      e=gllel(eg)
+      pi=4.0*atan(1.0)
+
+      molarmass=molmass
+
+
+! sound speed and temperature derived from /usrparm/ quantities
+      asnd=v0/machnumber
+      temp=MixtPerf_T_CGR(asnd,gmaref,rgasref)
+
+      ux=v0*sin(x)*cos(y)*cos(z)
+      uy=-v0*cos(x)*sin(y)*cos(z)
+      uz=0.0
+
+      pres=r0*v0**2*(1.0/gmaref/machnumber**2+
+     >     1.0/16.0*(cos(2.0*x)+cos(2.0*y))*(cos(2.0*z)+2.0))
+      rho=MixtPerf_D_PRT(pres,rgasref,temp)
+
+      phi = 1.0
+      cp=cpgref
+      cv=cvgref
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat
+      include 'SIZE'
+      include 'TOTAL'
+      include 'CMTDATA'
+      include 'CMTTIMERS'
+      include 'PERFECTGAS'
+      real r0,v0,rey,machnumber
+      common /usrparm/ r0,v0,rey,machnumber
+
+      molmass    = 8314.3
+      prlam      = 0.72
+      gmaref     = 1.4
+      rgasref    = MixtPerf_R_M(molmass,dum)
+      cvgref     = rgasref/(gmaref-1.0)
+      cpgref     = MixtPerf_Cp_CvR(cvgref,rgasref)
+      gmaref     = MixtPerf_G_CpR(cpgref,rgasref) 
+
+! desired reference
+      r0= 1.0
+      v0= 1.0
+      machnumber=0.1
+      rey=1600
+
+      muref      = r0*v0/rey
+
+      res_freq = 1000000
+      flio_freq=100000
+!-----------------------------------------------------------------------
+! JH030317
+! adding output fields for diagnostic purposes. optional, but perhaps should
+! be flagged by values in uservp (Navier-Stokes vs EVM GP vs both)
+!
+! ldimt>=3 because we need ldimt1>=4
+! vdiff(:,imu) = mu, first viscosity coeff, acting on symmetric strain rate sij
+! vdiff(:,iknd) = kappa, thermal conductivity
+! vdiff(:,ilam) = lambda, second viscosity coeff, acting on dilatational strain
+! vdiff(:,inus) = nu_s, artificial mass diffusivity in GP fluxes
+!
+! Of course, these coefficients are not applied to corresponding ifield like in
+! vanilla nek5000. likewise, vtrans doesn't correspond directly to vdiff, either.
+! So T+1 array gets used for other stuff. Document things
+! here and in userchk until they become standard
+
+      nbc = 0      ! No changes in boundary conditions required
+!      do i=1,ldimt
+!         call add_temp(f2tbc,nbc,1)
+!      enddo
+!
+!      igeom = 2
+!      call setup_topo
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat2
+      include 'SIZE'
+      include 'TOTAL'
+      include 'CMTDATA'
+
+      IFCNTFILT=.false.
+      ifrestart=.false.
+      ifsip=.false.
+      pi=4.0*atan(1.0)
+      twopi=2.0*pi
+
+      call rescale_x(xm1,0.0,twopi)
+      call rescale_x(ym1,0.0,twopi)
+      call rescale_x(zm1,0.0,twopi)
+
+      return
+      end
+!-----------------------------------------------------------------------
+      subroutine cmt_userEOS(ix,iy,iz,eg)
+      include 'SIZE'
+      include 'NEKUSE'
+      include 'PARALLEL'
+      include 'CMTDATA'
+      include 'PERFECTGAS'
+      integer e,eg
+
+      cp=cpgref
+      cv=cvgref
+      temp=e_internal/cv
+      asnd=MixtPerf_C_GRT(gmaref,rgasref,temp)
+      pres=MixtPerf_P_DRT(rho,rgasref,temp)
+      return
+      end
+!-----------------------------------------------------------------------
+      subroutine usrdat3
+      return
+      end
+
+!-----------------------------------------------------------------------
+
+      subroutine cmt_usrflt(rmult)
+      include 'SIZE'
+      real rmult(lx1)
+      real alpfilt
+      integer sfilt, kut
+      real eta, etac
+      call rone(rmult,lx1)
+      alpfilt=36.0 ! H&W 5.3
+      kut=lx1/2
+      sfilt=8
+      etac=real(kut)/real(nx1)
+      do i=kut,nx1
+         eta=real(i)/real(nx1)
+         rmult(i)=exp(-alpfilt*((eta-etac)/(1.0-etac))**sfilt)
+      enddo
+      return
+      end
+
+
+!-----------------------------------------------------------------------
+      subroutine entropy_viscosity
+      return
+      end
+
