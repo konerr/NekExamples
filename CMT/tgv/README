@@ -1,0 +1,9 @@
+
+This is an example of turbulent decay of compressible Taylor-Green vortex in 3D.
+
+A cubic domain of length 2pi with periodic bc's is used.
+
+The Reynolds number based on refernce length of 1m is chosen to be 1600 and Mach 
+number is 0.1. 
+
+The flow is isothermal and ideal gas relations are used.
