@@ -87,24 +87,24 @@ c Compute kinetic energy
       total_ke = 0.5*rho*(xke + yke + zke)/volvm1
 
 ! sij
-      call compressible_dissipation(sijsij,div2,pdil)
+      call dissipation(sijsij,div2,pdil)
       call col2(div2,vdiff(1,1,1,1,ilam),n)
       call col2(sijsij,vdiff(1,1,1,1,imu),n)
       call cmult(sijsij,2.0,n)
-      eps3=glsc2(sijsij,bm1,n)
-      eps4=glsc2(div2,bm1,n)
-      eps5=-glsc2(pdil,bm1,n)
+      eps3=glsc2(sijsij,bm1,n)/volvm1
+      eps4=glsc2(div2,bm1,n)/volvm1
+      eps5=-glsc2(pdil,bm1,n)/volvm1
 
       if (nio.eq.0) then
          write(6,2)istep,time,umin,' <T<',umax
 !        write(6,2)istep,time,umin,' <u<',umax
          
-  	 if(mod(istep,10).eq.0) then
-         open(unit=luout(1),file='tgv_ke.dat',form="formatted",
+!  	 if(mod(istep,10).eq.0) then
+         open(unit=luout(1),file='tgv_diss.dat',form="formatted",
      >        position="append")
-         write(luout(1),'(5e23.16)')time,total_ke,eps3,eps4,eps5
+         write(luout(1),'(5e24.16)')time,total_ke,eps3,eps4,eps5
          close(luout(1))
-	 endif
+!	 endif
       endif
 !     endif
 2     format(i6,1p2e17.8,a4,1p1e17.8)
@@ -279,10 +279,12 @@ c-----------------------------------------------------------------------
 
 !-----------------------------------------------------------------------
 
-      subroutine dissipation(sijsij)
+      subroutine dissipation(sijsij,div2,pdil)
       include 'SIZE'
       include 'TOTAL'
-      real sijsij(lx1*ly1*lz1,lelt)
+      real sijsij(nx1*ny1*nz1,nelv)
+      real div2(nx1*ny1*nz1,nelv)
+      real pdil(nx1*ny1*nz1,nelv)
       common /scrns/         sij (lx1*ly1*lz1,6,lelv)
       parameter (lr=lx1*ly1*lz1)
       common /scruz/         ur(lr),us(lr),ut(lr)
