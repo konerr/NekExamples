@@ -52,6 +52,9 @@ c-----------------------------------------------------------------------
       real err(4),work(4)
       integer  luout(6)
       character*24 zefn
+      real sijsij,div2,pdil
+      common /scrsf/ sijsij(lx1**3,lelt),div2(lx1**3,lelt),
+     >                 pdil(lx1**3,lelt)
 
       luout(1) = 59
       luout(2) = 60
@@ -77,10 +80,20 @@ c-----------------------------------------------------------------------
 !     if (mod(kstep,100).eq.0) then
 c Compute kinetic energy 
       call compute_primitive_vars
+      call compute_transport_props
       xke = glsc3(vx, vx, bm1, n)
       yke = glsc3(vy, vy, bm1, n)
       zke = glsc3(vz, vz, bm1, n)
       total_ke = 0.5*rho*(xke + yke + zke)/volvm1
+
+! sij
+      call compressible_dissipation(sijsij,div2,pdil)
+      call col2(div2,vdiff(1,1,1,1,ilam),n)
+      call col2(sijsij,vdiff(1,1,1,1,imu),n)
+      call cmult(sijsij,2.0,n)
+      eps3=glsc2(sijsij,bm1,n)
+      eps4=glsc2(div2,bm1,n)
+      eps5=-glsc2(pdil,bm1,n)
 
       if (nio.eq.0) then
          write(6,2)istep,time,umin,' <T<',umax
@@ -89,7 +102,7 @@ c Compute kinetic energy
   	 if(mod(istep,10).eq.0) then
          open(unit=luout(1),file='tgv_ke.dat',form="formatted",
      >        position="append")
-         write(luout(1),'(2e23.16)')time,total_ke
+         write(luout(1),'(5e23.16)')time,total_ke,eps3,eps4,eps5
          close(luout(1))
 	 endif
       endif
@@ -264,3 +277,47 @@ c-----------------------------------------------------------------------
       return
       end
 
+!-----------------------------------------------------------------------
+
+      subroutine dissipation(sijsij)
+      include 'SIZE'
+      include 'TOTAL'
+      real sijsij(lx1*ly1*lz1,lelt)
+      common /scrns/         sij (lx1*ly1*lz1,6,lelv)
+      parameter (lr=lx1*ly1*lz1)
+      common /scruz/         ur(lr),us(lr),ut(lr)
+     $                      , vr(lr),vs(lr),vt(lr)
+     $                      , wr(lr),ws(lr),wt(lr)
+      integer e
+
+      nij = 3+3*(ndim-2)
+      call comp_sij(sij,nij,vx,vy,vz,ur,us,ut,vr,vs,vt,wr,ws,wt)
+      nxyz = nx1*ny1*nz1
+      n    = nx1*ny1*nz1*nelv
+      call rzero(sijsij,n)
+
+! compute deviatoric S:S
+      do e=1,nelv
+      do j=1,nij
+      do i=1,nxyz
+      sijsij(i,e)=sijsij(i,e)+0.25*sij(i,j,e)**2 ! no 1/2 in comp_sij!!!!
+      enddo
+      enddo
+      enddo
+
+      call rzero(div2,n)
+
+! compute dilatational dui/dxi dui/dxi and pressure-strain
+      do e=1,nelv
+         do i=1,nxyz
+            div=0.0
+            do j=1,ndim ! thanks, paul!
+               div=div+sij(i,j,e)
+            enddo
+            div2(i,e)=div**2
+            pdil(i,e)=pr(i,1,1,e)*div
+         enddo
+      enddo
+
+      return
+      end
