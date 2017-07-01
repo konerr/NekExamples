@@ -1,0 +1,11 @@
+so.rea
+2                      spatial dimension
+1                      number of fields
+#
+#  Eddy case
+#
+Box
+-200  -20                      nelx,nely,nelz for Box
+-5.0   5.0  1.                    x0 x1 ratio 
+-5.0   -4.0  1.                    y0 y1 ratio 
+V  ,O  ,W  ,W  ,              bc's
