@@ -55,6 +55,7 @@ c-----------------------------------------------------------------------
       include 'SIZE'
       include 'TOTAL'
       include 'CMTDATA'
+      include 'TORO'
 
       integer  e,f
       real err(4),work(4)
@@ -192,6 +193,8 @@ c-----------------------------------------------------------------------
       include 'CMTDATA'
       include 'GEOM' ! not sure if this is a good idea.
       include 'PERFECTGAS'
+      include 'TORO'
+
       real nx,ny,nz  ! bite me it's fun
       integer e
 
@@ -202,6 +205,15 @@ c-----------------------------------------------------------------------
       cv=cvgref
       uy=0.0
       uz=0.0
+
+!      diaph1=-4.0
+!      dl = 3.857143
+!      ul = 2.629369/dl
+!      pl = 10.33333
+!      dr = 1.0-0.2*sin(5*pi*x)
+!      ur = 0.000000
+!      pright = 1.000000
+
       if (x .lt. diaph1) then
          ux=ul
          pres=pl
@@ -225,6 +237,7 @@ c-----------------------------------------------------------------------
       include 'NEKUSE'
       include 'PERFECTGAS'
       include 'CMTDATA'
+      include 'TORO'
       integer e,eg, eqnum
 
 ! JH073114 Toro e1rpex provides SUBROUTINE SAMPLE and is crudely grafted
@@ -234,10 +247,18 @@ c-----------------------------------------------------------------------
       
       pi=4.0*atan(1.0)
       
+!      diaph1 = -4.0
+!      dl = 3.857143
+!      ul = 2.629369/dl
+!      pl = 10.33333
+!      dr = 1.0-0.2*sin(5*pi*x)
+!      ur = 0.000000
+!      pright = 1.000000
+
       if (x.gt.diaph1) then
          ux=ur
          pres=pright
-         rho=1-0.2*sin(5*pi*x)
+         rho=dr
       else
          ux=ul
          pres=pl
@@ -308,6 +329,7 @@ c-----------------------------------------------------------------------
       include 'CMTBCDATA'
       include 'CMTDATA'
       include 'PERFECTGAS'   
+      include 'TORO'
 
       outflsub=.true.
       IFCNTFILT=.false.
@@ -339,6 +361,7 @@ c-----------------------------------------------------------------------
       dr = 1.0-0.2*sin(5*pi*x)
       ur = 0.000000
       pright = 1.000000
+      zerotime = 0.0
 
       molmass=8314.3
       muref=0.0
